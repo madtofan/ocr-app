@@ -1,30 +1,72 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-// #[tauri::command]
-// fn greet(name: &str) -> String {
-//     format!("Hello, {}! You've been greeted from Rust!", name)
-// }
-
-// #[cfg_attr(mobile, tauri::mobile_entry_point)]
-// pub fn run() {
-//     tauri::Builder::default()
-//         .plugin(tauri_plugin_os::init())
-//         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-//         .plugin(tauri_plugin_opener::init())
-//         .invoke_handler(tauri::generate_handler![greet])
-//         .run(tauri::generate_context!())
-//         .expect("error while running tauri application");
-// }
-//
 use chrono::Local;
 use tauri::{
     menu::{Menu, MenuItem},
     path::BaseDirectory,
     tray::{TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager,
+    AppHandle, Emitter, Manager, State,
 };
 use tauri_plugin_global_shortcut::{Code, Modifiers, ShortcutState};
-
 use xcap::Monitor;
+
+use sqlx::{sqlite::SqlitePoolOptions, FromRow, Pool, Sqlite};
+use std::fs;
+
+// The Todo struct needs 'FromRow' to automatically map DB rows to the struct
+#[derive(Debug, serde::Serialize, serde::Deserialize, FromRow)]
+pub struct Todo {
+    id: i64,
+    title: String,
+    status: String,
+    created_at: String, // You can also use chrono::NaiveDateTime if you want stricter types
+}
+
+// AppState now holds the Pool directly (it's internally thread-safe)
+pub struct AppState {
+    db: Pool<Sqlite>,
+}
+
+async fn init_db(app_handle: &tauri::AppHandle) -> Result<Pool<Sqlite>, String> {
+    // 1. Resolve the path: AppData/com.yourapp/langcapture.db
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .expect("failed to get app data dir");
+
+    // Ensure the directory exists
+    if !app_data_dir.exists() {
+        fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
+    }
+
+    let db_path = app_data_dir.join("langcapture.db");
+    let db_url = format!("sqlite://{}", db_path.to_string_lossy());
+
+    // 2. Create the file if it doesn't exist (sqlx requires this step for SQLite)
+    if !std::path::Path::new(&db_path).exists() {
+        std::fs::File::create(&db_path).map_err(|e| e.to_string())?;
+    }
+
+    // 3. Connect
+    let pool = SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect(&db_url)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // 4. Run Migration (Create Table)
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS todos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+    )
+    .execute(&pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(pool)
+}
 
 pub fn run() {
     tauri::Builder::default()
@@ -36,7 +78,7 @@ pub fn run() {
                 Code::KeyS,
             );
 
-            let app_handle = app.handle().clone();
+            let screenshot_app_handle = app.handle().clone();
 
             app.handle().plugin(
                 tauri_plugin_global_shortcut::Builder::new()
@@ -44,11 +86,20 @@ pub fn run() {
                     .with_handler(move |_app, shortcut, event| {
                         if shortcut == &ctrl_shift_s && event.state == ShortcutState::Pressed {
                             println!("Shortcut triggered! Taking screenshot...");
-                            take_screenshot(&app_handle);
+                            take_screenshot(&screenshot_app_handle);
                         }
                     })
                     .build(),
             )?;
+
+            let db_app_handle = app.handle().clone();
+
+            // Initialize DB asynchronously
+            tauri::async_runtime::block_on(async move {
+                let pool = init_db(&db_app_handle).await.expect("Failed to init DB");
+                // Manage the state
+                db_app_handle.manage(AppState { db: pool });
+            });
 
             // 2. Setup System Tray
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
@@ -81,10 +132,27 @@ pub fn run() {
             Ok(())
         })
         // 3. Prevent App Exit on Window Close
+        // .on_window_event(|window, event| {
+        //     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        //         window.hide().unwrap();
+        //         api.prevent_close();
+        //     }
+        // })
+        .invoke_handler(tauri::generate_handler![
+            get_todos,
+            add_todo,
+            toggle_todo,
+            delete_todo
+        ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // 1. Always prevent the native close
                 window.hide().unwrap();
                 api.prevent_close();
+
+                // 2. Tell the frontend "Hey, the user tried to close the window"
+                // We use emit to send a message to the Vue app
+                let _ = window.emit("request-minimize", ());
             }
         })
         .run(tauri::generate_context!())
@@ -112,4 +180,59 @@ fn take_screenshot(app: &AppHandle) {
         // Optional: Emit an event so frontend refreshes automatically!
         let _ = app.emit("screenshot-taken", ());
     }
+}
+
+#[tauri::command]
+async fn get_todos(state: State<'_, AppState>) -> Result<Vec<Todo>, String> {
+    // query_as automatically maps the row to your Todo struct
+    let todos = sqlx::query_as::<_, Todo>(
+        "SELECT id, title, status, created_at FROM todos ORDER BY created_at DESC",
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(todos)
+}
+
+#[tauri::command]
+async fn add_todo(title: String, state: State<'_, AppState>) -> Result<(), String> {
+    sqlx::query("INSERT INTO todos (title, status) VALUES ($1, 'pending')")
+        .bind(title.clone())
+        .execute(&state.db)
+        .await
+        .map_err(|e| e.to_string())?;
+    println!("Title added: {:?}", title);
+    Ok(())
+}
+
+#[tauri::command]
+async fn toggle_todo(
+    id: i64,
+    current_status: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let new_status = if current_status == "pending" {
+        "done"
+    } else {
+        "pending"
+    };
+
+    sqlx::query("UPDATE todos SET status = $1 WHERE id = $2")
+        .bind(new_status)
+        .bind(id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn delete_todo(id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    sqlx::query("DELETE FROM todos WHERE id = $1")
+        .bind(id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }

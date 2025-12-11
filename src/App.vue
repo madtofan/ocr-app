@@ -5,6 +5,7 @@ import {
     SidebarTrigger,
 } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar.vue";
+import { Toaster } from "@/components/ui/sonner";
 </script>
 
 <template>
@@ -27,6 +28,7 @@ import AppSidebar from "@/components/AppSidebar.vue";
                     <router-view />
                 </main>
             </div>
+            <Toaster />
         </SidebarInset>
     </SidebarProvider>
 </template>

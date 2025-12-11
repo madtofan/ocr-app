@@ -4,10 +4,14 @@ import {
     SidebarContent,
     SidebarFooter,
     SidebarGroup,
+    SidebarGroupLabel,
+    SidebarGroupContent,
     SidebarHeader,
-    SidebarInset,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Calendar, Home, Inbox, Search, Settings } from "lucide-vue-next";
+import { Home, Settings } from "lucide-vue-next";
 
 const items = [
     {
@@ -18,6 +22,11 @@ const items = [
     {
         title: "Settings",
         url: "/settings",
+        icon: Settings,
+    },
+    {
+        title: "Todos",
+        url: "/todo",
         icon: Settings,
     },
 ];
@@ -37,8 +46,10 @@ const items = [
                         <div
                             class="grid flex-1 text-left text-sm leading-tight"
                         >
-                            <span class="truncate font-semibold">Acme Inc</span>
-                            <span class="truncate text-xs">Enterprise</span>
+                            <span class="truncate font-semibold"
+                                >LangCapture</span
+                            >
+                            <span class="truncate text-xs">PC App</span>
                         </div>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -53,7 +64,10 @@ const items = [
                             v-for="item in items"
                             :key="item.title"
                         >
-                            <SidebarMenuButton as-child>
+                            <SidebarMenuButton
+                                as-child
+                                :is-active="item.url === $route.path"
+                            >
                                 <a :href="item.url">
                                     <component :is="item.icon" />
                                     <span>{{ item.title }}</span>
