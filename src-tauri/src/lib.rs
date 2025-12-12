@@ -1,7 +1,7 @@
-use chrono::Local;
+use base64::prelude::*;
+use std::io::Cursor;
 use tauri::{
     menu::{Menu, MenuItem},
-    path::BaseDirectory,
     tray::{TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager, State,
 };
@@ -72,6 +72,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
+            if let Some(window) = app.get_webview_window("overlay") {
+                println!("Hiding overlay window!");
+                let _ = window.hide();
+            }
+
             // 1. Setup Global Shortcut (Ctrl + Shift + S)
             let ctrl_shift_s = tauri_plugin_global_shortcut::Shortcut::new(
                 Some(Modifiers::CONTROL | Modifiers::SHIFT),
@@ -131,14 +136,8 @@ pub fn run() {
 
             Ok(())
         })
-        // 3. Prevent App Exit on Window Close
-        // .on_window_event(|window, event| {
-        //     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-        //         window.hide().unwrap();
-        //         api.prevent_close();
-        //     }
-        // })
         .invoke_handler(tauri::generate_handler![
+            hide_app_window,
             get_todos,
             add_todo,
             toggle_todo,
@@ -147,7 +146,6 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 // 1. Always prevent the native close
-                window.hide().unwrap();
                 api.prevent_close();
 
                 // 2. Tell the frontend "Hey, the user tried to close the window"
@@ -165,21 +163,38 @@ fn take_screenshot(app: &AppHandle) {
 
     if let Some(monitor) = monitors.first() {
         let image = monitor.capture_image().unwrap();
-        let timestamp = Local::now().format("%Y-%m-%d_%H-%M-%S");
-        let filename = format!("screenshot_{}.png", timestamp);
-
-        // Resolve the Picture directory path
-        let file_path = app
-            .path()
-            .resolve(&filename, BaseDirectory::Picture)
-            .unwrap();
-
-        let _ = image.save(&file_path);
-        println!("Saved to {:?}", file_path);
-
         // Optional: Emit an event so frontend refreshes automatically!
-        let _ = app.emit("screenshot-taken", ());
+        let mut image_data: Vec<u8> = Vec::new();
+        let _ = image.write_to(
+            &mut Cursor::new(&mut image_data),
+            xcap::image::ImageFormat::Png,
+        );
+        let base64_image_string = BASE64_STANDARD.encode(image_data);
+        let _ = app.emit("screenshot-taken", base64_image_string);
+
+        if let Some(window) = app.get_webview_window("overlay") {
+            if window.is_visible().unwrap_or(false) {
+                // If visible -> Hide it
+                let _ = window.hide();
+            } else {
+                // If hidden -> Show it, Focus it, and Force top
+                let _ = window.show();
+                let _ = window.set_focus();
+                let _ = window.set_always_on_top(true);
+            }
+        } else {
+            println!("Overlay window not found!");
+        }
     }
+}
+
+#[tauri::command]
+async fn hide_app_window(handle: AppHandle) -> Result<(), String> {
+    if let Some(window) = handle.get_webview_window("main") {
+        println!("Hiding main window!");
+        let _ = window.hide();
+    }
+    Ok(())
 }
 
 #[tauri::command]

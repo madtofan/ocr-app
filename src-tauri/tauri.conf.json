@@ -10,11 +10,28 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "ocr-app",
-        "width": 800,
-        "height": 600
+        "label": "main",
+        "title": "LangCapture",
+        "width": 1024,
+        "height": 768,
+        "maximized": true
+      },
+      {
+        "label": "overlay",
+        "url": "/overlay",
+        "title": "Overlay",
+        "visible": false,
+        "alwaysOnTop": true,
+        "decorations": false,
+        "transparent": true,
+        "skipTaskbar": true,
+        "width": 1024,
+        "height": 768,
+        "maximized": true,
+        "resizable": false
       }
     ],
     "security": {
