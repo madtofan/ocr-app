@@ -1,15 +1,15 @@
 use base64::prelude::*;
-use std::io::Cursor;
 use tauri::{
+    image::Image,
     menu::{Menu, MenuItem},
-    tray::{TrayIconBuilder, TrayIconEvent},
+    tray::TrayIconBuilder,
     AppHandle, Emitter, Manager, State,
 };
 use tauri_plugin_global_shortcut::{Code, Modifiers, ShortcutState};
 use xcap::Monitor;
 
 use sqlx::{sqlite::SqlitePoolOptions, FromRow, Pool, Sqlite};
-use std::fs;
+use std::{fs, io::Cursor};
 
 // The Todo struct needs 'FromRow' to automatically map DB rows to the struct
 #[derive(Debug, serde::Serialize, serde::Deserialize, FromRow)]
@@ -70,14 +70,15 @@ async fn init_db(app_handle: &tauri::AppHandle) -> Result<Pool<Sqlite>, String> 
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
+            // Making sure overlay window is hidden on start
             if let Some(window) = app.get_webview_window("overlay") {
-                println!("Hiding overlay window!");
                 let _ = window.hide();
             }
 
-            // 1. Setup Global Shortcut (Ctrl + Shift + S)
+            // Setup Global Shortcut (Ctrl + Shift + S)
             let ctrl_shift_s = tauri_plugin_global_shortcut::Shortcut::new(
                 Some(Modifiers::CONTROL | Modifiers::SHIFT),
                 Code::KeyS,
@@ -106,13 +107,18 @@ pub fn run() {
                 db_app_handle.manage(AppState { db: pool });
             });
 
-            // 2. Setup System Tray
+            // Setup System Tray
+
+            let icon_bytes = include_bytes!("../icons/lang.ico");
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let show_i = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
+            let show_i = MenuItem::with_id(app, "show", "Show dashboard", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+
+            let icon = Image::from_bytes(icon_bytes).expect("Failed to load icon");
 
             TrayIconBuilder::new()
                 .menu(&menu)
+                .icon(icon)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => app.exit(0),
                     "show" => {
@@ -122,15 +128,6 @@ pub fn run() {
                         }
                     }
                     _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click { .. } = event {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
                 })
                 .build(app)?;
 
@@ -145,10 +142,10 @@ pub fn run() {
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                // 1. Always prevent the native close
+                // Always prevent the native close
                 api.prevent_close();
 
-                // 2. Tell the frontend "Hey, the user tried to close the window"
+                // Tell the frontend "Hey, the user tried to close the window"
                 // We use emit to send a message to the Vue app
                 let _ = window.emit("request-minimize", ());
             }

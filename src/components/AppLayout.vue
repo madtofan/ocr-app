@@ -9,13 +9,36 @@ import { Toaster } from "@/components/ui/sonner";
 import { onMounted, onUnmounted, provide, ref } from "vue";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { pagePropertiesKey } from "@/lib/keys";
+import {
+    AlertDialog,
+    AlertDialogContent,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogCancel,
+    AlertDialogAction,
+} from "./ui/alert-dialog";
+import { invoke } from "@tauri-apps/api/core";
+import { exit } from "@tauri-apps/plugin-process";
 
 let unlisten: UnlistenFn | undefined;
 
 const header = ref("");
+const showCloseDialog = ref(false);
 
 const updateHeader = (newHeader: string) => {
     header.value = newHeader;
+};
+
+const handleCancelClose = async () => {
+    showCloseDialog.value = false;
+    await exit(0);
+};
+
+const handleClose = () => {
+    showCloseDialog.value = false;
+    invoke("hide_app_window");
 };
 
 provide(pagePropertiesKey, {
@@ -25,7 +48,9 @@ provide(pagePropertiesKey, {
 
 // Inside your function:
 onMounted(async () => {
-    unlisten = await listen("request-minimize", () => {});
+    unlisten = await listen("request-minimize", () => {
+        showCloseDialog.value = true;
+    });
 });
 
 onUnmounted(async () => {
@@ -35,6 +60,25 @@ onUnmounted(async () => {
 
 <template>
     <SidebarProvider>
+        <AlertDialog :open="showCloseDialog">
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Hide the window</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Should LangCapture continue to run in the background to
+                        enable the usage of translate shortcut key?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel :onclick="handleCancelClose"
+                        >No, close LangCapture</AlertDialogCancel
+                    >
+                    <AlertDialogAction :onclick="handleClose"
+                        >Yes, run in the background</AlertDialogAction
+                    >
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
         <AppSidebar />
         <SidebarInset>
             <header
