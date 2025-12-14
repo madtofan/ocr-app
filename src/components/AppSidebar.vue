@@ -11,7 +11,14 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Home, Settings } from "lucide-vue-next";
+import {
+    BarChart3,
+    BookOpen,
+    GalleryVerticalEnd,
+    GraduationCap,
+    Home,
+    Settings,
+} from "lucide-vue-next";
 
 const items = [
     {
@@ -20,13 +27,23 @@ const items = [
         icon: Home,
     },
     {
-        title: "Settings",
-        url: "/settings",
-        icon: Settings,
+        title: "Word List",
+        url: "/words",
+        icon: BookOpen,
     },
     {
-        title: "Todos",
-        url: "/todo",
+        title: "Study Mode",
+        url: "/study",
+        icon: GraduationCap,
+    },
+    {
+        title: "Statistics",
+        url: "/stats",
+        icon: BarChart3,
+    },
+    {
+        title: "Settings",
+        url: "/settings",
         icon: Settings,
     },
 ];
@@ -34,7 +51,7 @@ const items = [
 
 <template>
     <Sidebar>
-        <SidebarHeader>
+        <SidebarHeader class="pt-4">
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg">
@@ -49,7 +66,10 @@ const items = [
                             <span class="truncate font-semibold"
                                 >LangCapture</span
                             >
-                            <span class="truncate text-xs">PC App</span>
+                            <span class="text-xs"
+                                >Press Ctrl + Shift + s to translate
+                                screen</span
+                            >
                         </div>
                     </SidebarMenuButton>
                 </SidebarMenuItem>

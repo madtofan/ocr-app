@@ -91,7 +91,6 @@ pub fn run() {
                     .with_shortcuts([ctrl_shift_s])?
                     .with_handler(move |_app, shortcut, event| {
                         if shortcut == &ctrl_shift_s && event.state == ShortcutState::Pressed {
-                            println!("Shortcut triggered! Taking screenshot...");
                             take_screenshot(&screenshot_app_handle);
                         }
                     })
@@ -188,7 +187,6 @@ fn take_screenshot(app: &AppHandle) {
 #[tauri::command]
 async fn hide_app_window(handle: AppHandle) -> Result<(), String> {
     if let Some(window) = handle.get_webview_window("main") {
-        println!("Hiding main window!");
         let _ = window.hide();
     }
     Ok(())

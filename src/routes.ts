@@ -5,6 +5,10 @@ import NotFound from "./views/NotFound.vue";
 import TodoPage from "./views/TodoPage.vue";
 import OverlayPage from "./views/OverlayPage.vue";
 import AppLayout from "./components/AppLayout.vue";
+import DashboardPage from "./views/DashboardPage.vue";
+import WordsPage from "./views/WordsPage.vue";
+import StudyPage from "./views/StudyPage.vue";
+import StatisticsPage from "./views/StatisticsPage.vue";
 
 const routes = [
   {
@@ -15,15 +19,25 @@ const routes = [
       {
         path: "",
         name: "Dashboard",
-        component: ScreenshotPage,
+        component: DashboardPage,
       },
       {
-        path: "/todo",
-        name: "Todos",
-        component: TodoPage,
+        path: "words",
+        name: "Word List",
+        component: WordsPage,
       },
       {
-        path: "/settings",
+        path: "study",
+        name: "Study Mode",
+        component: StudyPage,
+      },
+      {
+        path: "stats",
+        name: "Statistics",
+        component: StatisticsPage,
+      },
+      {
+        path: "settings",
         name: "Settings",
         component: SettingPage,
       },
