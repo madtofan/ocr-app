@@ -66,10 +66,7 @@ const items = [
                             <span class="truncate font-semibold"
                                 >LangCapture</span
                             >
-                            <span class="text-xs"
-                                >Press Ctrl + Shift + s to translate
-                                screen</span
-                            >
+                            <span class="text-xs">Translation Capture</span>
                         </div>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -99,6 +96,18 @@ const items = [
             </SidebarGroup>
             <SidebarGroup />
         </SidebarContent>
-        <SidebarFooter />
+        <SidebarFooter>
+            <div class="rounded-lg bg-muted p-4">
+                <p class="text-sm font-medium text-foreground">Quick Capture</p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                    Press
+                    <kbd
+                        class="rounded bg-background px-1.5 py-0.5 text-xs font-semibold"
+                        >Ctrl+Shift+S</kbd
+                    >
+                    to capture
+                </p>
+            </div>
+        </SidebarFooter>
     </Sidebar>
 </template>

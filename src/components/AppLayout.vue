@@ -5,7 +5,6 @@ import {
     SidebarTrigger,
 } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar.vue";
-import { Toaster } from "@/components/ui/sonner";
 import { onMounted, onUnmounted, provide, ref } from "vue";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { pagePropertiesKey } from "@/lib/keys";
@@ -21,8 +20,7 @@ import {
 } from "./ui/alert-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { exit } from "@tauri-apps/plugin-process";
-
-let unlisten: UnlistenFn | undefined;
+import { toast } from "vue-sonner";
 
 const header = ref("");
 const showCloseDialog = ref(false);
@@ -46,15 +44,27 @@ provide(pagePropertiesKey, {
     updateHeader,
 });
 
+let unlistenError: UnlistenFn | undefined;
+let unlistenMinimize: UnlistenFn | undefined;
+
 // Inside your function:
 onMounted(async () => {
-    unlisten = await listen("request-minimize", () => {
+    unlistenMinimize = await listen("request-minimize", () => {
         showCloseDialog.value = true;
+    });
+    unlistenError = await listen<string>("error", (event) => {
+        toast("⛔️ An error has occured!", {
+            description: event.payload,
+            action: {
+                label: "Clear",
+            },
+        });
     });
 });
 
 onUnmounted(async () => {
-    unlisten?.();
+    unlistenMinimize?.();
+    unlistenError?.();
 });
 </script>
 
@@ -96,7 +106,6 @@ onUnmounted(async () => {
                     <router-view />
                 </main>
             </div>
-            <Toaster />
         </SidebarInset>
     </SidebarProvider>
 </template>
