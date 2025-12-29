@@ -46,6 +46,11 @@ const items = [
         url: "/settings",
         icon: Settings,
     },
+    {
+        title: "Debug",
+        url: "/debug",
+        icon: Settings,
+    },
 ];
 </script>
 

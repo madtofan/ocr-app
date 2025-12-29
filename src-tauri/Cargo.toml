@@ -27,26 +27,24 @@ tauri-plugin-os = "2"
 tauri-plugin-process = "2"
 
 # Utilities packages
+anyhow = "1.0.100"
 base64 = "0.22.1"
-chrono = "0.4" # For naming files with timestamps
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+thiserror = "2.0.17"
 tokio = { version = "1", features = ["full"] } # Tauri uses tokio, but we explicitly add it to ensure we have full features
 
 # Databases packages
+chrono = "0.4" # For naming files with timestamps
 sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "tls-native-tls"] } # Add sqlx with sqlite and the tokio runtime
 
 # OCR Related packages
 image = "0.25.9"
-ort = { version = "2.0.0-rc.10", features= ["load-dynamic", "ndarray", "copy-dylibs"] }
+imageproc = "0.25.0"
 ndarray = "0.16.1"
+ort = { version = "2.0.0-rc.10", features= ["load-dynamic", "ndarray", "copy-dylibs"] }
 tokenizers = "0.22.2"
 xcap = "0.0.9" # Excellent cross-platform screenshot crate
-imageproc = "0.25.0"
-lazy_static = "1.5.0"
-as-slice = "0.2.1"
-thiserror = "2.0.17"
-anyhow = "1.0.100"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "2"

@@ -41,6 +41,11 @@ const routes = [
         name: "Settings",
         component: SettingPage,
       },
+      {
+        path: "debug",
+        name: "Debug",
+        component: ScreenshotPage,
+      },
     ],
   },
   {

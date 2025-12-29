@@ -69,7 +69,7 @@ onUnmounted(async () => {
 </script>
 
 <template>
-    <SidebarProvider>
+    <SidebarProvider class="h-screen">
         <AlertDialog :open="showCloseDialog">
             <AlertDialogContent>
                 <AlertDialogHeader>
@@ -90,21 +90,19 @@ onUnmounted(async () => {
             </AlertDialogContent>
         </AlertDialog>
         <AppSidebar />
-        <SidebarInset>
-            <header
+        <SidebarInset class="px-4 overflow-auto overscroll-auto">
+            <div
                 class="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
             >
                 <header class="flex items-center gap-2 px-4">
                     <SidebarTrigger class="-ml-1" />
                     <h1>{{ header }}</h1>
                 </header>
-            </header>
-            <div class="flex flex-1 flex-col gap-4 p-4 pt-0">
-                <main
-                    class="min-h-screen flex-1 rounded-xl bg-muted/50 md:min-h-min p-5"
-                >
-                    <router-view />
-                </main>
+            </div>
+            <div
+                class="flex flex-col gap-4 pt-0 min-h-screen flex-1 rounded-xl bg-muted/50 md:min-h-min p-5"
+            >
+                <router-view />
             </div>
         </SidebarInset>
     </SidebarProvider>

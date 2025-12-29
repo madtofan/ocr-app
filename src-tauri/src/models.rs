@@ -4,10 +4,10 @@ use sqlx::FromRow;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OcrBox {
     pub text: String,
-    pub x: i32,
-    pub y: i32,
-    pub width: i32,
-    pub height: i32,
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]

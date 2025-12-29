@@ -3433,12 +3433,10 @@ name = "ocr-app"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "as-slice",
  "base64 0.22.1",
  "chrono",
  "image",
  "imageproc",
- "lazy_static",
  "ndarray",
  "ort",
  "serde",

@@ -2,9 +2,11 @@ pub mod manga_ocr;
 pub mod pp_ocr;
 
 use crate::{models::OcrBox, state::AppState, Result};
+use base64::{engine::general_purpose, Engine as _};
 use image::DynamicImage;
+use std::io::Cursor;
 use tauri::path::BaseDirectory;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 // In your Tauri setup / initialization
 pub fn init_ort(app_handle: &AppHandle) -> Result<()> {
@@ -50,14 +52,18 @@ pub async fn run_ocr(app: &AppHandle, full_image: DynamicImage) -> Result<Vec<Oc
     let mut enc_session = state.enc_session.lock().unwrap();
     let mut dec_session = state.dec_session.lock().unwrap();
     let tokenizer = state.tokenizer.lock().unwrap();
+    let mut base64_images = Vec::new();
 
     // --- 2. DETECTION (PP-OCRv5 Mobile Det) ---
 
     // **--- PRE-PROCESSING STEP ---**
     let preprocessed_image = pp_ocr::preprocess_image(&full_image);
+    let base64_preprocessed_image =
+        image_buffer_to_base64(preprocessed_image.clone().into()).unwrap();
+    base64_images.push(base64_preprocessed_image);
 
     // --- 2. DETECTION (PP-OCRv5 Mobile Det) ---
-    let detected_boxes = pp_ocr::detect(&mut det_session, &preprocessed_image)?;
+    let detected_boxes = pp_ocr::detect(app, &mut det_session, &preprocessed_image, &full_image)?;
 
     // --- 3. RECOGNITION (Manga-OCR Encoder-Decoder) ---
     let mut final_results = Vec::new();
@@ -70,6 +76,8 @@ pub async fn run_ocr(app: &AppHandle, full_image: DynamicImage) -> Result<Vec<Oc
             bbox.width as u32,
             bbox.height as u32,
         );
+        let base64_cropped_image = image_buffer_to_base64(cropped_image.clone().into()).unwrap();
+        base64_images.push(base64_cropped_image);
 
         // d. Decoder Loop (Autoregressive)
         let recognized_text = manga_ocr::recognize(
@@ -83,5 +91,21 @@ pub async fn run_ocr(app: &AppHandle, full_image: DynamicImage) -> Result<Vec<Oc
         final_results.push(bbox);
     }
 
+    app.emit("base64-images1", base64_images).unwrap();
     Ok(final_results)
+}
+
+pub fn image_buffer_to_base64(image_buffer: DynamicImage) -> Result<String> {
+    // 1. Create a buffer to write the image data to.
+    let mut bytes: Vec<u8> = Vec::new();
+    let mut cursor = Cursor::new(&mut bytes);
+
+    // 2. Encode the ImageBuffer into a specific format (e.g., PNG) within the buffer.
+    // The ImageBuffer itself is raw pixel data, not a formatted image file.
+    // We use write_to with a Cursor for efficient in-memory writing.
+    image_buffer.write_to(&mut cursor, image::ImageFormat::Png)?;
+
+    // 3. Encode the image bytes into a Base64 string using the standard engine.
+    let encoded_base64 = general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:image/png;base64,{}", encoded_base64))
 }

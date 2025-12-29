@@ -70,6 +70,9 @@ pub fn run() {
                 window.hide()?;
             }
 
+            let app_handle = app.handle().clone();
+            ocr::init_ort(&app_handle).expect("Failed to initialize ORT");
+
             let handle = app.handle().clone();
             let ctrl_shift_s = tauri_plugin_global_shortcut::Shortcut::new(
                 Some(Modifiers::CONTROL | Modifiers::SHIFT),
@@ -78,30 +81,33 @@ pub fn run() {
             app.handle().plugin(
                 tauri_plugin_global_shortcut::Builder::new()
                     .with_shortcuts([ctrl_shift_s.clone()])?
-                    .with_handler(move |_app, shortcut, event| {
+                    .with_handler(move |handler_app, shortcut, event| {
                         if shortcut == &ctrl_shift_s && event.state == ShortcutState::Pressed {
+                            let processing = handler_app.state::<AppState>().is_processing.clone();
+                            if processing.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                                println!("OCR process is already running, cancelling new request");
+                                return; // Already running, ignore this press
+                            }
+
                             // 1. Clone the handle to move into the async block
                             let shortcut_handle = handle.clone();
-
                             // 2. Spawn the async task
                             tauri::async_runtime::spawn(async move {
                                 // Now you can await your async function
-                                take_screenshot(&shortcut_handle).await
+                                let _ = take_screenshot(&shortcut_handle).await;
+                                // Reset flag when done
+                                processing.store(false, std::sync::atomic::Ordering::SeqCst);
                             });
                         }
                     })
                     .build(),
             )?;
 
-            let app_handle = app.handle().clone();
-            ocr::init_ort(&app_handle).expect("Failed to initialize ORT");
-
             // Initialize DB and OCR models asynchronously
             tauri::async_runtime::block_on(async move {
                 let db_pool = db::init_db(&app_handle).await.expect("Failed to init DB");
 
                 let resource_path = app_handle.path().resource_dir().unwrap();
-
                 let manga_ocr_path = resource_path.join("resources").join("manga_ocr");
                 let enc_model_path = manga_ocr_path.join("encoder_model.onnx");
                 let dec_model_path = manga_ocr_path.join("decoder_model.onnx");
@@ -119,6 +125,7 @@ pub fn run() {
 
                 app_handle.manage(AppState {
                     db: db_pool,
+                    is_processing: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
                     det_session: Mutex::new(det_session),
                     enc_session: Mutex::new(enc_session),
                     dec_session: Mutex::new(dec_session),
